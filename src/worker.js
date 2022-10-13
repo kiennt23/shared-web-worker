@@ -20,6 +20,15 @@ onconnect = function (event) {
     const port = event.source;
     ports.push(port);
 
+    port.onmessage = function (event) {
+        if (event.data.command === "close") {
+            const index = ports.indexOf(port);
+            if (index > -1) {
+                ports.splice(index, 1);
+            }
+        }
+    };
+
     if (!interval) {
         interval = setInterval(() => {
             obj.counter++;
