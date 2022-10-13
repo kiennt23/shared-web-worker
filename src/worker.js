@@ -26,6 +26,9 @@ onconnect = function (event) {
             if (index > -1) {
                 ports.splice(index, 1);
             }
+            if (ports.length === 0) {
+                clearInterval(interval);
+            }
         }
     };
 
