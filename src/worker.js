@@ -32,7 +32,7 @@ onconnect = function (event) {
         }
     };
 
-    if (!interval) {
+    if (interval === undefined) {
         interval = setInterval(() => {
             obj.counter++;
             ports.forEach(port => port.postMessage(obj));
