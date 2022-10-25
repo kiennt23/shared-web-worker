@@ -1,34 +1,28 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
+
+import { registerCountHandlers, closeWorker } from "./workers/count/count.main";
 
 const App = () => {
 
-    const [loading, setLoading] = React.useState(true);
-    const [count, setCount] = React.useState(0);
-    const [worker, setWorker] = React.useState(null);
+    const [loading, setLoading] = useState(true);
+    const [count, setCount] = useState(0);
 
     useEffect(() => {
-        const worker = new SharedWorker("worker.js");
-        setWorker(worker);
-        worker.port.onmessage = (event) => {
-            setCount(event.data.counter);
-        };
+        setLoading(true)
+        registerCountHandlers(setCount);
         setLoading(false);
         return () => {
-            worker.port.postMessage({ command: "close" });
-        };
+            closeWorker();
+        }
     }, []);
 
     useEffect(() => {
-        const handleClosePort = () => {
-            worker.port.postMessage({ command: "close" });
-        };
-        if (worker) {
-            window.addEventListener('beforeunload', handleClosePort);
-        }
+        window.addEventListener('beforeunload', closeWorker);
+
         return () => {
-            window.removeEventListener('beforeunload', handleClosePort);
+            window.removeEventListener('beforeunload', closeWorker);
         };
-    }, [worker]);
+    }, []);
 
     return <>
         {loading ? <div>Loading...</div> : <>

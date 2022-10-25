@@ -8,7 +8,7 @@ const config = {
   mode: isProd ? "production" : "development",
   entry: {
     index: "./src/index",
-    worker: "./src/worker",
+    "count.worker": "./src/workers/count/count.worker",
   },
   output: {
     publicPath: "auto",
