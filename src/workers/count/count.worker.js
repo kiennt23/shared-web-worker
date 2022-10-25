@@ -19,7 +19,7 @@ let ports = [];
 
 const isSharedWorkerAvailable = typeof SharedWorkerGlobalScope !== 'undefined';
 
-const restoredFromStorage = async () => {
+const restoreFromStorage = async () => {
     const storedCountObj = await localforage.getItem("countObj");
     obj = storedCountObj || obj;
 }
@@ -31,7 +31,7 @@ const increaseAndSaveToStorage = async () => {
 
 const start = async (port) => {
     ports.push(port);
-    await restoredFromStorage();
+    await restoreFromStorage();
     port.onmessage = function (event) {
         if (event.data.command === "close") {
             const index = ports.indexOf(port);
