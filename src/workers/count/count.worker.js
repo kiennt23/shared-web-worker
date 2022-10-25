@@ -17,7 +17,7 @@ let ports = [];
  * via the connection `port`.
  */
 
-const isSharedWorkerAvailable = typeof SharedWorkerGlobalScope !== 'undefined';
+const isSharedWorkerAvailable = "SharedWorkerGlobalScope" in self;
 
 const restoreFromStorage = async () => {
     const storedCountObj = await localforage.getItem("countObj");
@@ -52,12 +52,12 @@ const start = async (port) => {
     }
 }
 
-onconnect = async function (event) {
-    const port = event.source;
-    start(port);
-};
-
-if (!"SharedWorkerGlobalScope" in self) {
+if (isSharedWorkerAvailable) {
+    onconnect = async function (event) {
+        const port = event.source;
+        start(port);
+    };
+} else {
     start(self);
 }
 
