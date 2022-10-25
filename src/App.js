@@ -7,10 +7,14 @@ const App = () => {
     const [loading, setLoading] = useState(true);
     const [count, setCount] = useState(0);
 
+    const countHandler = (count) => {
+        setCount(count);
+        setLoading(false);
+    }
+
     useEffect(() => {
         setLoading(true)
-        registerCountHandlers(setCount);
-        setLoading(false);
+        registerCountHandlers(countHandler);
         return () => {
             closeWorker();
         }
