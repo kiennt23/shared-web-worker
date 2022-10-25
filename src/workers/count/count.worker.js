@@ -1,9 +1,9 @@
+import localforage from "localforage";
+
 /**
  * The Global state
  */
-const obj = {
-    counter: 0
-};
+let obj = { counter: 0 };
 
 let interval;
 
@@ -19,41 +19,46 @@ let ports = [];
 
 const isSharedWorkerAvailable = typeof SharedWorkerGlobalScope !== 'undefined';
 
-if (isSharedWorkerAvailable) {
-    onconnect = function (event) {
-        const port = event.source;
-        ports.push(port);
+const restoredFromStorage = async () => {
+    const storedCountObj = await localforage.getItem("countObj");
+    obj = storedCountObj || obj;
+}
 
-        port.onmessage = function (event) {
-            if (event.data.command === "close") {
-                const index = ports.indexOf(port);
-                if (index > -1) {
-                    ports.splice(index, 1);
-                }
-                if (ports.length === 0) {
-                    clearInterval(interval);
-                }
+const increaseAndSaveToStorage = async () => {
+    obj.counter++;
+    await localforage.setItem("countObj", obj);
+}
+
+const start = async (port) => {
+    ports.push(port);
+    await restoredFromStorage();
+    port.onmessage = function (event) {
+        if (event.data.command === "close") {
+            const index = ports.indexOf(port);
+            if (index > -1) {
+                ports.splice(index, 1);
             }
-        };
-
-        if (interval === undefined) {
-            interval = setInterval(() => {
-                obj.counter++;
-                ports.forEach(port => port.postMessage(obj));
-            }, 1000);
+            if (ports.length === 0) {
+                clearInterval(interval);
+            }
         }
     };
-} else { // handle dedicated web worker
-    interval = setInterval(() => {
-        obj.counter++;
-        postMessage(obj);
-    })
 
-    onmessage = function (event) {
-        if (event.data.command === "close") {
-            clearInterval(interval);
-        }
+    if (interval === undefined) {
+        interval = setInterval(async () => {
+            await increaseAndSaveToStorage();
+            ports.forEach(port => port.postMessage(obj));
+        }, 1000);
     }
+}
+
+onconnect = async function (event) {
+    const port = event.source;
+    start(port);
+};
+
+if (!"SharedWorkerGlobalScope" in self) {
+    start(self);
 }
 
 onerror = function (event) {

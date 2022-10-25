@@ -24,6 +24,8 @@
     "webpack-dev-server": "^4.11.1"
   },
   "dependencies": {
+    "@okikio/sharedworker": "^1.0.4",
+    "localforage": "^1.10.0",
     "react": "^16.14.0",
     "react-dom": "^16.14.0"
   }
