@@ -12,11 +12,6 @@ let interval;
  */
 let ports = [];
 
-/**
- * When a connection is made into this shared worker, expose `obj`
- * via the connection `port`.
- */
-
 const isSharedWorkerAvailable = "SharedWorkerGlobalScope" in self;
 
 const restoreFromStorage = async () => {
@@ -46,12 +41,20 @@ const start = async (port) => {
 
     if (interval === undefined) {
         interval = setInterval(async () => {
-            await increaseAndSaveToStorage();
-            ports.forEach(port => port.postMessage(obj));
+            navigator.locks.request("countObj", { ifAvailable: true }, async (lock) => {
+                if (!lock) return;
+                await restoreFromStorage();
+                await increaseAndSaveToStorage();
+                ports.forEach(port => port.postMessage(obj));
+            });
         }, 1000);
     }
 }
 
+/**
+* When a connection is made into this shared worker, expose `obj`
+* via the connection `port`.
+*/
 if (isSharedWorkerAvailable) {
     onconnect = async function (event) {
         const port = event.source;
