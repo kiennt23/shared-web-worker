@@ -91,7 +91,7 @@ const start = async (port) => {
 * if this is a SharedWorker, setup `onconnect`
 */
 if (isSharedWorkerAvailable) {
-    onconnect = async function (event) {
+    self.onconnect = async function (event) {
         const port = event.source;
         await start(port);
     };

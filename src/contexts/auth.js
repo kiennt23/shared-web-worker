@@ -33,7 +33,7 @@ const callLoginAPI = async (username) => {
 }
 
 const callLogoutAPI = async (username) => {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         resolve(`Successfully logged out ${username}`);
     });
 }

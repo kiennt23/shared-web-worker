@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "clean": "npx rimraf dist",
+    "lint": "eslint --fix src/**/*.js",
     "dev": "cross-env NODE_ENV=development webpack-dev-server",
     "build": "cross-env NODE_ENV=production webpack"
   },
@@ -17,6 +18,11 @@
     "@types/react-dom": "^18.0.6",
     "babel-loader": "^8.2.5",
     "cross-env": "^7.0.3",
+    "eslint": "^8.26.0",
+    "eslint-plugin-import": "^2.26.0",
+    "eslint-plugin-jsx-a11y": "^6.6.1",
+    "eslint-plugin-react": "^7.31.10",
+    "eslint-plugin-react-hooks": "^4.6.0",
     "html-webpack-plugin": "^5.5.0",
     "terser-webpack-plugin": "^5.3.6",
     "webpack": "^5.74.0",
