@@ -34,14 +34,14 @@ const restoreFromStorage = async () => {
 const setupTimers = () => {
     sessionWarningTimeout = setTimeout(() => {
         let remainingSeconds = SESSION_WARNING_BUFFER_IN_SECONDS;
-        ports.forEach(port => port.postMessage({ type: "SESSION_TIMEOUT_WARNING", message: `Session timeout in ${remainingSeconds} seconds` }));
+        ports.forEach(port => port.postMessage({ type: "SESSION_TIMEOUT_WARNING", message: `Session timeout in ${remainingSeconds} seconds`, remainingSeconds }));
         sessionWarningInterval = setInterval(() => {
             remainingSeconds--;
             if (remainingSeconds === 0) {
                 clearInterval(sessionWarningInterval);
                 return;
             }
-            ports.forEach(port => port.postMessage({ type: "SESSION_TIMEOUT_WARNING", message: `Session timeout in ${remainingSeconds} seconds` }));
+            ports.forEach(port => port.postMessage({ type: "SESSION_TIMEOUT_WARNING", message: `Session timeout in ${remainingSeconds} seconds`, remainingSeconds }));
         }, 1000);
     }, SESSION_TIMEOUT_IN_MILLIS - SESSION_WARNING_BUFFER_IN_MILLIS);
     sessionTimeout = setTimeout(() => {
@@ -53,6 +53,7 @@ const clearTimers = () => {
     sessionWarningInterval != null && clearInterval(sessionWarningInterval);
     sessionWarningTimeout != null && clearTimeout(sessionWarningTimeout);
     sessionTimeout != null && clearTimeout(sessionTimeout);
+    ports.forEach(port => port.postMessage({ type: "CLEAR_TIMERS" }));
 }
 
 /**

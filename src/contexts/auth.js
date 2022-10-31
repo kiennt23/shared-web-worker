@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import {
-    registerAuthUpdateHandler,
+    registerAuthUpdateHandler, registerClearTimersHandler,
     registerSessionTimeoutHandler,
     registerSessionTimeoutWarningHandler,
     sendActivityEvent,
     sendLoginCommand,
     sendLogoutCommand,
-    unregisterAuthUpdateHandler,
+    unregisterAuthUpdateHandler, unregisterClearTimersHandler,
     unregisterSessionTimeoutHandler,
     unregisterSessionTimeoutWarningHandler
 } from "../workers/auth/auth.main";
@@ -53,6 +53,7 @@ export const useProvideAuth = () => {
     const [user, setUser] = useState();
     const [authError, setAuthError] = useState();
     const [authWarning, setAuthWarning] = useState();
+    const [remainingSeconds, setRemainingSeconds] = useState();
 
     useEffect(() => {
         const authUpdateHandler = ({ data: { isAuthenticated, user } }) => {
@@ -67,24 +68,32 @@ export const useProvideAuth = () => {
     }, []);
 
     useEffect(() => {
-        const sessionTimeoutWarningHandler = ({ message }) => {
+        const sessionTimeoutWarningHandler = ({ message, remainingSeconds }) => {
             setAuthWarning(message);
+            setRemainingSeconds(remainingSeconds);
         };
         const sessionTimeoutHandler = () => {
             sendLogoutCommand({ isAuthenticated: false, user: null });
         };
+        const clearTimersHandler = () => {
+            setAuthWarning(null);
+            setRemainingSeconds(null);
+        }
 
         if (isAuthenticated) {
             registerSessionTimeoutWarningHandler(sessionTimeoutWarningHandler);
             registerSessionTimeoutHandler(sessionTimeoutHandler);
+            registerClearTimersHandler(clearTimersHandler);
         } else {
             unregisterSessionTimeoutWarningHandler(sessionTimeoutWarningHandler);
             unregisterSessionTimeoutHandler(sessionTimeoutHandler);
+            unregisterClearTimersHandler(clearTimersHandler);
         }
 
         return () => {
             unregisterSessionTimeoutWarningHandler(sessionTimeoutWarningHandler);
             unregisterSessionTimeoutHandler(sessionTimeoutHandler);
+            unregisterClearTimersHandler(clearTimersHandler);
         }
     }, [isAuthenticated]);
 
@@ -127,6 +136,7 @@ export const useProvideAuth = () => {
         user,
         authError,
         authWarning,
+        remainingSeconds,
         signin,
         signout
     }

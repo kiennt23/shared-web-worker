@@ -9,6 +9,7 @@ const worker = initWorker();
 let authUpdateHandlers = [];
 let sessionTimeoutHandlers = [];
 let sessionTimeoutWarningHandlers = [];
+let clearTimersHandlers = [];
 
 /**
 * close the worker/connection by sending a "close" command to the worker
@@ -72,6 +73,20 @@ export const unregisterSessionTimeoutWarningHandler = (handler) => {
 }
 
 /**
+* Register a clear timers handler
+*/
+export const registerClearTimersHandler = (handler) => {
+    clearTimersHandlers.push(handler);
+}
+
+/**
+* Unregister a clear timers handler
+*/
+export const unregisterClearTimersHandler = (handler) => {
+    clearTimersHandlers = clearTimersHandlers.filter((theHandler) => theHandler !== handler);
+}
+
+/**
 * handle the data sent from the worker by calling each hander in the `handlers` list
 */
 const handleMessage = () => {
@@ -84,6 +99,9 @@ const handleMessage = () => {
         }
         if (event.data.type === "SESSION_TIMEOUT_WARNING") {
             sessionTimeoutWarningHandlers.forEach(handler => handler(event.data));
+        }
+        if (event.data.type === "CLEAR_TIMERS") {
+            clearTimersHandlers.forEach(handler => handler(event.data));
         }
     };
 }
