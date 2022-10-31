@@ -5,7 +5,11 @@ import localforage from "localforage";
 */
 let authObj = { isAuthenticated: false, user: null };
 
-let interval;
+const SESSION_TIMEOUT_IN_MILLIS = 60 * 1000; // 1 minute in milliseconds
+let sessionTimeout;
+
+const SESSION_WARNING_BUFFER_IN_MILLIS = 5 * 1000; // 5 seconds in milliseconds
+let sessionWarningTimeout;
 
 /**
 * The list of ports that are connected to this shared worker.
@@ -23,6 +27,20 @@ const isSharedWorkerAvailable = "SharedWorkerGlobalScope" in self;
 const restoreFromStorage = async () => {
     const storedCountObj = await localforage.getItem("authObj");
     authObj = storedCountObj || authObj;
+}
+
+const setupTimers = () => {
+    sessionWarningTimeout = setTimeout(() => {
+        ports.forEach(port => port.postMessage({ type: "SESSION_TIMEOUT_WARNING", message: "Session timeout in 5 seconds" }));
+    }, SESSION_TIMEOUT_IN_MILLIS - SESSION_WARNING_BUFFER_IN_MILLIS);
+    sessionTimeout = setTimeout(() => {
+        ports.forEach(port => port.postMessage({ type: "SESSION_TIMEOUT" }));
+    }, SESSION_TIMEOUT_IN_MILLIS);
+}
+
+const clearTimers = () => {
+    sessionWarningTimeout != null && clearTimeout(sessionWarningTimeout);
+    sessionTimeout != null && clearTimeout(sessionTimeout);
 }
 
 /**
@@ -50,16 +68,21 @@ const start = async (port) => {
                 ports.splice(index, 1);
             }
             if (ports.length === 0) {
-                clearInterval(interval);
+                clearTimers();
             }
         } else if (event.data.type === "LOGIN_COMMAND") {
             const authData = event.data.data;
+            setupTimers();
             await localforage.setItem("authObj", authData);
             ports.forEach(port => port.postMessage({ type: "AUTH_UPDATE", data: authData }));
         } else if (event.data.type === "LOGOUT_COMMAND") {
             const authData = event.data.data;
+            clearTimers();
             await localforage.removeItem("authObj");
             ports.forEach(port => port.postMessage({ type: "AUTH_UPDATE", data: authData}));
+        } else if (event.data.type === "ACTIVITY") {
+            clearTimers();
+            setupTimers();
         }
     };
 }

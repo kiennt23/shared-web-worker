@@ -7,6 +7,8 @@ const initWorker = () => {
 const worker = initWorker();
 
 let authUpdateHandlers = [];
+let sessionTimeoutHandlers = [];
+let sessionTimeoutWarningHandlers = [];
 
 /**
 * close the worker/connection by sending a "close" command to the worker
@@ -24,10 +26,45 @@ export const sendLogoutCommand = (authData) => {
 }
 
 /**
-* Register a count handler
+* Register an auth update handler
 */
 export const registerAuthUpdateHandler = (handler) => {
     authUpdateHandlers.push(handler);
+}
+
+/**
+* Unregister auth update handler
+*/
+export const unregisterAuthUpdateHandler = (handler) => {
+    authUpdateHandlers = authUpdateHandlers.filter((theHandler) => theHandler !== handler);
+}
+
+/**
+* Register a session timeout handler
+*/
+export const registerSessionTimeoutHandler = (handler) => {
+    sessionTimeoutHandlers.push(handler);
+}
+
+/**
+* Unregister session timeout handler
+*/
+export const unregisterSessionTimeoutHandler = (handler) => {
+    sessionTimeoutHandlers = sessionTimeoutHandlers.filter((theHandler) => theHandler !== handler);
+}
+
+/**
+* Register a session timeout warning handler
+*/
+export const registerSessionTimeoutWarningHandler = (handler) => {
+    sessionTimeoutWarningHandlers.push(handler);
+}
+
+/**
+* Unregister a session timeout warning handler
+*/
+export const unregisterSessionTimeoutWarningHandler = (handler) => {
+    sessionTimeoutWarningHandlers = sessionTimeoutWarningHandlers.filter((theHandler) => theHandler !== handler);
 }
 
 /**
@@ -36,8 +73,13 @@ export const registerAuthUpdateHandler = (handler) => {
 const handleMessage = () => {
     worker.port.onmessage = (event) => {
         if (event.data.type === 'AUTH_UPDATE') {
-            const authData = event.data.data;
-            authUpdateHandlers.forEach(handler => handler(authData));
+            authUpdateHandlers.forEach(handler => handler(event.data));
+        }
+        if (event.data.type === 'SESSION_TIMEOUT') {
+            sessionTimeoutHandlers.forEach(handler => handler(event.data));
+        }
+        if (event.data.type === 'SESSION_TIMEOUT_WARNING') {
+            sessionTimeoutWarningHandlers.forEach(handler => handler(event.data));
         }
     };
 }

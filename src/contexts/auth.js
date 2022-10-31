@@ -1,8 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import {
     registerAuthUpdateHandler,
+    registerSessionTimeoutHandler,
+    registerSessionTimeoutWarningHandler,
     sendLoginCommand,
-    sendLogoutCommand
+    sendLogoutCommand,
+    unregisterAuthUpdateHandler,
+    unregisterSessionTimeoutHandler,
+    unregisterSessionTimeoutWarningHandler
 } from "../workers/auth/auth.main";
 
 export const AuthContext = createContext();
@@ -39,10 +44,27 @@ export const useProvideAuth = () => {
     const [authError, setAuthError] = useState();
 
     useEffect(() => {
-        registerAuthUpdateHandler(({ isAuthenticated, user }) => {
+        const authUpdateHandler = ({ data: { isAuthenticated, user } }) => {
             setIsAuthenticated(isAuthenticated);
             setUser(user);
-        })
+        };
+        registerAuthUpdateHandler(authUpdateHandler);
+
+        const sessionTimeoutWarningHandler = ({ message }) => {
+            alert(message);
+        };
+        registerSessionTimeoutWarningHandler(sessionTimeoutWarningHandler);
+
+        const sessionTimeoutHandler = () => {
+            sendLogoutCommand({ isAuthenticated: false, user: null });
+        };
+        registerSessionTimeoutHandler(sessionTimeoutHandler);
+
+        return () => {
+            unregisterAuthUpdateHandler(authUpdateHandler);
+            unregisterSessionTimeoutWarningHandler(sessionTimeoutWarningHandler);
+            unregisterSessionTimeoutHandler(sessionTimeoutHandler);
+        }
     }, []);
 
     const signin = async (username) => {
