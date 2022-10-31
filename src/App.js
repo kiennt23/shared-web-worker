@@ -1,24 +1,9 @@
-import React, { useEffect, useState } from "react";
-
-import { registerCountHandlers, closeWorker } from "./workers/count/count.main";
+import React, { useEffect } from "react";
+import { AuthProvider} from "./contexts/auth";
+import { closeWorker } from "./workers/auth/auth.main";
+import { Main } from "./Main";
 
 const App = () => {
-
-    const [loading, setLoading] = useState(true);
-    const [count, setCount] = useState(0);
-
-    const countHandler = (count) => {
-        setCount(count);
-        setLoading(false);
-    }
-
-    useEffect(() => {
-        setLoading(true)
-        registerCountHandlers(countHandler);
-        return () => {
-            closeWorker();
-        }
-    }, []);
 
     useEffect(() => {
         window.addEventListener('beforeunload', closeWorker);
@@ -28,11 +13,11 @@ const App = () => {
         };
     }, []);
 
-    return <>
-        {loading ? <div>Loading...</div> : <>
-            <div>Count: {count}</div>
-        </>}
-    </>
+    return (
+        <AuthProvider>
+            <Main />
+        </AuthProvider>
+    );
 };
 
 export default App;

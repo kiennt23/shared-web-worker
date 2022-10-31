@@ -1,15 +1,15 @@
 import localforage from "localforage";
 
 /**
- * The Global state
- */
-let obj = { counter: 0 };
+* The Global state
+*/
+let authObj = { isAuthenticated: false, user: null };
 
 let interval;
 
 /**
- * The list of ports that are connected to this shared worker.
- */
+* The list of ports that are connected to this shared worker.
+*/
 let ports = [];
 
 /**
@@ -21,16 +21,8 @@ const isSharedWorkerAvailable = "SharedWorkerGlobalScope" in self;
 * restore the state from the storage
 */
 const restoreFromStorage = async () => {
-    const storedCountObj = await localforage.getItem("countObj");
-    obj = storedCountObj || obj;
-}
-
-/**
-* increase the counter and save the global state to the storage
-*/
-const increaseAndSaveToStorage = async () => {
-    obj.counter++;
-    await localforage.setItem("countObj", obj);
+    const storedCountObj = await localforage.getItem("authObj");
+    authObj = storedCountObj || authObj;
 }
 
 /**
@@ -46,13 +38,13 @@ const start = async (port) => {
     /**
     * set up message hadling
     */
-    port.onmessage = function (event) {
+    port.onmessage = async function (event) {
         /**
         * on "close" command, close the connection from this worker to the main thread
         * remove the connection from the connection list
         * clear the heavy task if there is no connection left
         */
-        if (event.data.command === "close") {
+        if (event.data.type === "CLOSE_COMMAND") {
             const index = ports.indexOf(port);
             if (index > -1) {
                 ports.splice(index, 1);
@@ -60,26 +52,16 @@ const start = async (port) => {
             if (ports.length === 0) {
                 clearInterval(interval);
             }
+        } else if (event.data.type === "LOGIN_COMMAND") {
+            const authData = event.data.data;
+            await localforage.setItem("authObj", authData);
+            ports.forEach(port => port.postMessage({ type: "AUTH_UPDATE", data: authData }));
+        } else if (event.data.type === "LOGOUT_COMMAND") {
+            const authData = event.data.data;
+            await localforage.removeItem("authObj");
+            ports.forEach(port => port.postMessage({ type: "AUTH_UPDATE", data: authData}));
         }
     };
-
-    /**
-    * the heavy task
-    */
-    if (interval === undefined) {
-        interval = setInterval(async () => {
-            /**
-            * lock so we make sure only one thread can access this block of code
-            * if there is already a thread accessing this code (`lock` will be null), then do nothing
-            */
-            navigator.locks.request("countObj", { ifAvailable: true }, async (lock) => {
-                if (!lock) return;
-                await restoreFromStorage();
-                await increaseAndSaveToStorage();
-                ports.forEach(port => port.postMessage(obj));
-            });
-        }, 1000);
-    }
 }
 
 /**
@@ -88,7 +70,7 @@ const start = async (port) => {
 if (isSharedWorkerAvailable) {
     onconnect = async function (event) {
         const port = event.source;
-        start(port);
+        await start(port);
     };
 } else { // this is a dedicated worker
     start(self);
