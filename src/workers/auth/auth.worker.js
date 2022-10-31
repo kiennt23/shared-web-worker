@@ -8,8 +8,10 @@ let authObj = { isAuthenticated: false, user: null };
 const SESSION_TIMEOUT_IN_MILLIS = 60 * 1000; // 1 minute in milliseconds
 let sessionTimeout;
 
-const SESSION_WARNING_BUFFER_IN_MILLIS = 5 * 1000; // 5 seconds in milliseconds
+const SESSION_WARNING_BUFFER_IN_SECONDS = 5;
+const SESSION_WARNING_BUFFER_IN_MILLIS = SESSION_WARNING_BUFFER_IN_SECONDS * 1000; // 5 seconds in milliseconds
 let sessionWarningTimeout;
+let sessionWarningInterval;
 
 /**
 * The list of ports that are connected to this shared worker.
@@ -31,7 +33,16 @@ const restoreFromStorage = async () => {
 
 const setupTimers = () => {
     sessionWarningTimeout = setTimeout(() => {
-        ports.forEach(port => port.postMessage({ type: "SESSION_TIMEOUT_WARNING", message: "Session timeout in 5 seconds" }));
+        let remainingSeconds = SESSION_WARNING_BUFFER_IN_SECONDS;
+        ports.forEach(port => port.postMessage({ type: "SESSION_TIMEOUT_WARNING", message: `Session timeout in ${remainingSeconds} seconds` }));
+        sessionWarningInterval = setInterval(() => {
+            remainingSeconds--;
+            if (remainingSeconds === 0) {
+                clearInterval(sessionWarningInterval);
+                return;
+            }
+            ports.forEach(port => port.postMessage({ type: "SESSION_TIMEOUT_WARNING", message: `Session timeout in ${remainingSeconds} seconds` }));
+        }, 1000);
     }, SESSION_TIMEOUT_IN_MILLIS - SESSION_WARNING_BUFFER_IN_MILLIS);
     sessionTimeout = setTimeout(() => {
         ports.forEach(port => port.postMessage({ type: "SESSION_TIMEOUT" }));
@@ -39,6 +50,7 @@ const setupTimers = () => {
 }
 
 const clearTimers = () => {
+    sessionWarningInterval != null && clearInterval(sessionWarningInterval);
     sessionWarningTimeout != null && clearTimeout(sessionWarningTimeout);
     sessionTimeout != null && clearTimeout(sessionTimeout);
 }
@@ -81,6 +93,10 @@ const start = async (port) => {
             await localforage.removeItem("authObj");
             ports.forEach(port => port.postMessage({ type: "AUTH_UPDATE", data: authData}));
         } else if (event.data.type === "ACTIVITY") {
+            const activity = event.data.data;
+            console.log(`The last activity ${activity}`);
+            const sessionEnd = new Date(new Date().getTime() + SESSION_TIMEOUT_IN_MILLIS);
+            console.log(`Session will end at ${sessionEnd.toLocaleString()}`);
             clearTimers();
             setupTimers();
         }

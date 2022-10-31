@@ -25,6 +25,10 @@ export const sendLogoutCommand = (authData) => {
     worker.port.postMessage({ type: "LOGOUT_COMMAND", data: authData });
 }
 
+export const sendActivityEvent = (event) => {
+    worker.port.postMessage({ type: "ACTIVITY", data: event.type });
+}
+
 /**
 * Register an auth update handler
 */
@@ -72,13 +76,13 @@ export const unregisterSessionTimeoutWarningHandler = (handler) => {
 */
 const handleMessage = () => {
     worker.port.onmessage = (event) => {
-        if (event.data.type === 'AUTH_UPDATE') {
+        if (event.data.type === "AUTH_UPDATE") {
             authUpdateHandlers.forEach(handler => handler(event.data));
         }
-        if (event.data.type === 'SESSION_TIMEOUT') {
+        if (event.data.type === "SESSION_TIMEOUT") {
             sessionTimeoutHandlers.forEach(handler => handler(event.data));
         }
-        if (event.data.type === 'SESSION_TIMEOUT_WARNING') {
+        if (event.data.type === "SESSION_TIMEOUT_WARNING") {
             sessionTimeoutWarningHandlers.forEach(handler => handler(event.data));
         }
     };

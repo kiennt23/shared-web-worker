@@ -6,10 +6,10 @@ import { Main } from "./Main";
 const App = () => {
 
     useEffect(() => {
-        window.addEventListener('beforeunload', closeWorker);
+        window.addEventListener("beforeunload", closeWorker);
 
         return () => {
-            window.removeEventListener('beforeunload', closeWorker);
+            window.removeEventListener("beforeunload", closeWorker);
         };
     }, []);
 

@@ -3,6 +3,7 @@ import {
     registerAuthUpdateHandler,
     registerSessionTimeoutHandler,
     registerSessionTimeoutWarningHandler,
+    sendActivityEvent,
     sendLoginCommand,
     sendLogoutCommand,
     unregisterAuthUpdateHandler,
@@ -38,10 +39,20 @@ const callLogoutAPI = async (username) => {
     });
 }
 
+const events = [
+    'mousedown',
+    'mousemove',
+    'keypress',
+    'click',
+    'scroll',
+    'touchstart',
+];
+
 export const useProvideAuth = () => {
     const [isAuthenticated, setIsAuthenticated] = useState();
     const [user, setUser] = useState();
     const [authError, setAuthError] = useState();
+    const [authWarning, setAuthWarning] = useState();
 
     useEffect(() => {
         const authUpdateHandler = ({ data: { isAuthenticated, user } }) => {
@@ -50,22 +61,50 @@ export const useProvideAuth = () => {
         };
         registerAuthUpdateHandler(authUpdateHandler);
 
-        const sessionTimeoutWarningHandler = ({ message }) => {
-            alert(message);
-        };
-        registerSessionTimeoutWarningHandler(sessionTimeoutWarningHandler);
+        return () => {
+            unregisterAuthUpdateHandler(authUpdateHandler);
+        }
+    }, []);
 
+    useEffect(() => {
+        const sessionTimeoutWarningHandler = ({ message }) => {
+            setAuthWarning(message);
+        };
         const sessionTimeoutHandler = () => {
             sendLogoutCommand({ isAuthenticated: false, user: null });
         };
-        registerSessionTimeoutHandler(sessionTimeoutHandler);
 
-        return () => {
-            unregisterAuthUpdateHandler(authUpdateHandler);
+        if (isAuthenticated) {
+            registerSessionTimeoutWarningHandler(sessionTimeoutWarningHandler);
+            registerSessionTimeoutHandler(sessionTimeoutHandler);
+        } else {
             unregisterSessionTimeoutWarningHandler(sessionTimeoutWarningHandler);
             unregisterSessionTimeoutHandler(sessionTimeoutHandler);
         }
-    }, []);
+
+        return () => {
+            unregisterSessionTimeoutWarningHandler(sessionTimeoutWarningHandler);
+            unregisterSessionTimeoutHandler(sessionTimeoutHandler);
+        }
+    }, [isAuthenticated]);
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            events.forEach((event) => {
+                window.addEventListener(event, sendActivityEvent, true);
+            });
+        } else {
+            events.forEach((event) => {
+                window.removeEventListener(event, sendActivityEvent, true);
+            });
+        }
+
+        return () => {
+            events.forEach((event) => {
+                window.removeEventListener(event, sendActivityEvent, true);
+            });
+        }
+    }, [isAuthenticated]);
 
     const signin = async (username) => {
         setAuthError(null);
@@ -87,6 +126,7 @@ export const useProvideAuth = () => {
         isAuthenticated,
         user,
         authError,
+        authWarning,
         signin,
         signout
     }
