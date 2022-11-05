@@ -1,17 +1,21 @@
 import localforage from "localforage";
 
+const SESSION_TIMEOUT_IN_MILLIS = 60 * 1000; // 1 minute in milliseconds
+const SESSION_WARNING_BUFFER_IN_SECONDS = 5;
+const SESSION_WARNING_BUFFER_IN_MILLIS = SESSION_WARNING_BUFFER_IN_SECONDS * 1000; // 5 seconds in milliseconds
+
 /**
 * The Global state
 */
-let authObj = { isAuthenticated: false, user: null };
-
-const SESSION_TIMEOUT_IN_MILLIS = 60 * 1000; // 1 minute in milliseconds
-let sessionTimeout;
-
-const SESSION_WARNING_BUFFER_IN_SECONDS = 5;
-const SESSION_WARNING_BUFFER_IN_MILLIS = SESSION_WARNING_BUFFER_IN_SECONDS * 1000; // 5 seconds in milliseconds
-let sessionWarningTimeout;
-let sessionWarningInterval;
+let authObj = {
+    isAuthenticated: false,
+    user: null,
+    expiryTime: null,
+    expiryIn: null,
+    sessionTimeout: null,
+    sessionWarningTimeout: null,
+    sessionWarningInterval: null
+};
 
 /**
 * The list of ports that are connected to this shared worker.
@@ -28,31 +32,35 @@ const isSharedWorkerAvailable = "SharedWorkerGlobalScope" in self;
 */
 const restoreFromStorage = async () => {
     const storedCountObj = await localforage.getItem("authObj");
-    authObj = storedCountObj || authObj;
+    authObj = { ...authObj, ...storedCountObj };
 }
 
 const setupTimers = () => {
-    sessionWarningTimeout = setTimeout(() => {
+    authObj.sessionWarningTimeout = setTimeout(() => {
         let remainingSeconds = SESSION_WARNING_BUFFER_IN_SECONDS;
         ports.forEach(port => port.postMessage({ type: "SESSION_TIMEOUT_WARNING", message: `Session timeout in ${remainingSeconds} seconds`, remainingSeconds }));
-        sessionWarningInterval = setInterval(() => {
+        authObj.sessionWarningInterval = setInterval(() => {
+            clearInterval(authObj.sessionWarningInterval);
+            delete authObj.sessionWarningInterval;
             remainingSeconds--;
             if (remainingSeconds === 0) {
-                clearInterval(sessionWarningInterval);
                 return;
             }
             ports.forEach(port => port.postMessage({ type: "SESSION_TIMEOUT_WARNING", message: `Session timeout in ${remainingSeconds} seconds`, remainingSeconds }));
         }, 1000);
     }, SESSION_TIMEOUT_IN_MILLIS - SESSION_WARNING_BUFFER_IN_MILLIS);
-    sessionTimeout = setTimeout(() => {
+    authObj.sessionTimeout = setTimeout(() => {
         ports.forEach(port => port.postMessage({ type: "SESSION_TIMEOUT" }));
     }, SESSION_TIMEOUT_IN_MILLIS);
 }
 
 const clearTimers = () => {
-    sessionWarningInterval != null && clearInterval(sessionWarningInterval);
-    sessionWarningTimeout != null && clearTimeout(sessionWarningTimeout);
-    sessionTimeout != null && clearTimeout(sessionTimeout);
+    authObj.sessionWarningInterval != null && clearInterval(authObj.sessionWarningInterval);
+    delete authObj.sessionWarningInterval;
+    authObj.sessionWarningTimeout != null && clearTimeout(authObj.sessionWarningTimeout);
+    delete authObj.sessionWarningTimeout;
+    authObj.sessionTimeout != null && clearTimeout(authObj.sessionTimeout);
+    delete authObj.sessionTimeout;
     ports.forEach(port => port.postMessage({ type: "CLEAR_TIMERS" }));
 }
 
@@ -65,6 +73,9 @@ const clearTimers = () => {
 const start = async (port) => {
     ports.push(port);
     await restoreFromStorage();
+    setupTimers();
+    await localforage.setItem("authObj", authObj);
+    ports.forEach(port => port.postMessage({ type: "AUTH_UPDATE", data: authObj }));
 
     /**
     * set up message hadling
@@ -84,7 +95,7 @@ const start = async (port) => {
                 clearTimers();
             }
         } else if (event.data.type === "LOGIN_COMMAND") {
-            const authData = event.data.data;
+            const authData = { ...authObj, ...event.data.data };
             setupTimers();
             await localforage.setItem("authObj", authData);
             ports.forEach(port => port.postMessage({ type: "AUTH_UPDATE", data: authData }));
