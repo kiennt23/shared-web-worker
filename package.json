@@ -35,5 +35,8 @@
     "react": "^16.14.0",
     "react-dom": "^16.14.0",
     "react-router-dom": "^5.3.4"
+  },
+  "volta": {
+    "node": "16.18.0"
   }
 }
