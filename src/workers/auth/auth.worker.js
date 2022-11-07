@@ -10,8 +10,6 @@ const SESSION_WARNING_BUFFER_IN_MILLIS = SESSION_WARNING_BUFFER_IN_SECONDS * 100
 let authObj = {
     isAuthenticated: false,
     user: null,
-    expiryTime: null,
-    expiryIn: null,
     sessionTimeout: null,
     sessionWarningTimeout: null,
     sessionWarningInterval: null
@@ -32,29 +30,32 @@ const isSharedWorkerAvailable = "SharedWorkerGlobalScope" in self;
 */
 const restoreFromStorage = async () => {
     const storedCountObj = await localforage.getItem("authObj");
-    authObj = { ...authObj, ...storedCountObj };
+    return { ...authObj, ...storedCountObj };
 }
 
-const setupTimers = () => {
-    authObj.sessionWarningTimeout = setTimeout(() => {
-        let remainingSeconds = SESSION_WARNING_BUFFER_IN_SECONDS;
-        ports.forEach(port => port.postMessage({ type: "SESSION_TIMEOUT_WARNING", message: `Session timeout in ${remainingSeconds} seconds`, remainingSeconds }));
-        authObj.sessionWarningInterval = setInterval(() => {
-            clearInterval(authObj.sessionWarningInterval);
-            delete authObj.sessionWarningInterval;
-            remainingSeconds--;
-            if (remainingSeconds === 0) {
-                return;
-            }
+const setupTimers = async () => {
+    if (authObj.isAuthenticated) {
+        authObj.sessionWarningTimeout = setTimeout(() => {
+            let remainingSeconds = SESSION_WARNING_BUFFER_IN_SECONDS;
             ports.forEach(port => port.postMessage({ type: "SESSION_TIMEOUT_WARNING", message: `Session timeout in ${remainingSeconds} seconds`, remainingSeconds }));
-        }, 1000);
-    }, SESSION_TIMEOUT_IN_MILLIS - SESSION_WARNING_BUFFER_IN_MILLIS);
-    authObj.sessionTimeout = setTimeout(() => {
-        ports.forEach(port => port.postMessage({ type: "SESSION_TIMEOUT" }));
-    }, SESSION_TIMEOUT_IN_MILLIS);
+            authObj.sessionWarningInterval = setInterval(() => {
+                clearInterval(authObj.sessionWarningInterval);
+                delete authObj.sessionWarningInterval;
+                remainingSeconds--;
+                if (remainingSeconds === 0) {
+                    return;
+                }
+                ports.forEach(port => port.postMessage({ type: "SESSION_TIMEOUT_WARNING", message: `Session timeout in ${remainingSeconds} seconds`, remainingSeconds }));
+            }, 1000);
+        }, SESSION_TIMEOUT_IN_MILLIS - SESSION_WARNING_BUFFER_IN_MILLIS);
+        authObj.sessionTimeout = setTimeout(() => {
+            ports.forEach(port => port.postMessage({ type: "SESSION_TIMEOUT" }));
+        }, SESSION_TIMEOUT_IN_MILLIS);
+        await localforage.setItem("authObj", authObj);
+    }
 }
 
-const clearTimers = () => {
+const clearTimers = async () => {
     authObj.sessionWarningInterval != null && clearInterval(authObj.sessionWarningInterval);
     delete authObj.sessionWarningInterval;
     authObj.sessionWarningTimeout != null && clearTimeout(authObj.sessionWarningTimeout);
@@ -62,20 +63,30 @@ const clearTimers = () => {
     authObj.sessionTimeout != null && clearTimeout(authObj.sessionTimeout);
     delete authObj.sessionTimeout;
     ports.forEach(port => port.postMessage({ type: "CLEAR_TIMERS" }));
+    await localforage.setItem("authObj", authObj);
+}
+
+const resetActivity = async (activity) => {
+    console.log(`The last activity ${activity}`);
+    const sessionEnd = new Date(new Date().getTime() + SESSION_TIMEOUT_IN_MILLIS);
+    console.log(`Session will end at ${sessionEnd.toLocaleString()}`);
+    await clearTimers();
+    await setupTimers();
 }
 
 /**
 * add port to the list of ports we need to broadcast the state changes to
-* resotre the initial global state from the storage
+* restore the initial global state from the storage
 * set up message hanlding
 * and set up the heavy task
 */
 const start = async (port) => {
     ports.push(port);
-    await restoreFromStorage();
-    setupTimers();
-    await localforage.setItem("authObj", authObj);
-    ports.forEach(port => port.postMessage({ type: "AUTH_UPDATE", data: authObj }));
+    await navigator.locks.request("authObj", async () => {
+        authObj = await restoreFromStorage();
+        await resetActivity("opentab");
+        ports.forEach(port => port.postMessage({ type: "AUTH_UPDATE", data: authObj }));
+    });
 
     /**
     * set up message hadling
@@ -92,25 +103,25 @@ const start = async (port) => {
                 ports.splice(index, 1);
             }
             if (ports.length === 0) {
-                clearTimers();
+                await clearTimers();
             }
         } else if (event.data.type === "LOGIN_COMMAND") {
-            const authData = { ...authObj, ...event.data.data };
-            setupTimers();
-            await localforage.setItem("authObj", authData);
-            ports.forEach(port => port.postMessage({ type: "AUTH_UPDATE", data: authData }));
+            await navigator.locks.request("authObj", async () => {
+                authObj = { ...authObj, ...event.data.data };
+                await setupTimers();
+                ports.forEach(port => port.postMessage({ type: "AUTH_UPDATE", data: authObj }));
+            });
         } else if (event.data.type === "LOGOUT_COMMAND") {
-            const authData = event.data.data;
-            clearTimers();
-            await localforage.removeItem("authObj");
-            ports.forEach(port => port.postMessage({ type: "AUTH_UPDATE", data: authData}));
+            await navigator.locks.request("authObj", async () => {
+                authObj = { ...authObj, ...event.data.data };
+                await clearTimers();
+                ports.forEach(port => port.postMessage({ type: "AUTH_UPDATE", data: authObj }));
+            });
         } else if (event.data.type === "ACTIVITY") {
-            const activity = event.data.data;
-            console.log(`The last activity ${activity}`);
-            const sessionEnd = new Date(new Date().getTime() + SESSION_TIMEOUT_IN_MILLIS);
-            console.log(`Session will end at ${sessionEnd.toLocaleString()}`);
-            clearTimers();
-            setupTimers();
+            await navigator.locks.request("authObj", async () => {
+                const activity = event.data.data;
+                await resetActivity(activity);
+            });
         }
     };
 }

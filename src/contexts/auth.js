@@ -52,7 +52,6 @@ export const useProvideAuth = () => {
     const [isAuthenticated, setIsAuthenticated] = useState();
     const [user, setUser] = useState();
     const [authError, setAuthError] = useState();
-    const [authWarning, setAuthWarning] = useState();
     const [remainingSeconds, setRemainingSeconds] = useState();
 
     useEffect(() => {
@@ -68,15 +67,13 @@ export const useProvideAuth = () => {
     }, []);
 
     useEffect(() => {
-        const sessionTimeoutWarningHandler = ({ message, remainingSeconds }) => {
-            setAuthWarning(message);
+        const sessionTimeoutWarningHandler = ({ remainingSeconds }) => {
             setRemainingSeconds(remainingSeconds);
         };
         const sessionTimeoutHandler = () => {
             sendLogoutCommand({ isAuthenticated: false, user: null });
         };
         const clearTimersHandler = () => {
-            setAuthWarning(null);
             setRemainingSeconds(null);
         }
 
@@ -135,7 +132,6 @@ export const useProvideAuth = () => {
         isAuthenticated,
         user,
         authError,
-        authWarning,
         remainingSeconds,
         signin,
         signout
